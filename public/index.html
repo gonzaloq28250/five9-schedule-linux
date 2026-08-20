@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Five9 Profile Automation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <main class="page-shell">
+    <section id="loginView" class="auth-layout">
+      <div class="auth-copy">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <span class="cloud-dot dot-one"></span>
+            <span class="cloud-dot dot-two"></span>
+            <span class="cloud-dot dot-three"></span>
+            <strong>9</strong>
+          </div>
+          <div>
+            <p class="eyebrow">Five9 Admin Utility</p>
+            <h1>Profile Automation</h1>
+          </div>
+        </div>
+
+        <p class="hero-text">
+          Mueve agentes, administra skills y crea automatizaciones por horario o volumen de queue con
+          rollback automático cuando una asignación falla.
+        </p>
+
+        <div class="feature-grid">
+          <article>
+            <span class="feature-icon">01</span>
+            <h3>Conecta</h3>
+            <p>Usa el Admin SOAP API sin almacenar tus credenciales.</p>
+          </article>
+          <article>
+            <span class="feature-icon">02</span>
+            <h3>Selecciona</h3>
+            <p>Filtra y elige uno, varios o todos los usuarios del perfil origen.</p>
+          </article>
+          <article>
+            <span class="feature-icon">03</span>
+            <h3>Mueve</h3>
+            <p>Remueve, asigna, verifica el resultado y registra la operación.</p>
+          </article>
+        </div>
+      </div>
+
+      <div class="auth-card glass-card">
+        <div class="card-heading">
+          <span class="status-dot"></span>
+          <div>
+            <p class="eyebrow">Conexión segura local</p>
+            <h2>Acceder a Five9</h2>
+          </div>
+        </div>
+
+        <form id="loginForm" autocomplete="off">
+          <label>
+            <span>Data center</span>
+            <select id="dataCenter" required>
+              <option value="US">US · api.five9.com</option>
+              <option value="UK">UK · api.five9.eu</option>
+              <option value="Canada">Canada · api.five9.ca</option>
+              <option value="Frankfurt">Frankfurt · api.eu.five9.com</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Versión del Admin Web Service</span>
+            <select id="apiVersion" required>
+              <option value="v13">v13 · Recomendada</option>
+              <option value="v12">v12</option>
+              <option value="v11">v11</option>
+              <option value="v10_2">v10.2</option>
+              <option value="v10">v10</option>
+              <option value="v9_5">v9.5</option>
+              <option value="v9_3">v9.3</option>
+              <option value="default">Default</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Administrador Five9</span>
+            <input id="username" type="text" required spellcheck="false"
+                   placeholder="admin@empresa.com">
+          </label>
+
+          <label>
+            <span>Contraseña</span>
+            <div class="password-wrap">
+              <input id="password" type="password" required placeholder="••••••••••••">
+              <button id="togglePassword" class="icon-button" type="button"
+                      aria-label="Mostrar u ocultar contraseña">Ver</button>
+            </div>
+          </label>
+
+          <label class="save-credentials-option">
+            <input id="saveSoapCredentials" type="checkbox">
+            <span>
+              Guardar credenciales cifradas con Windows DPAPI para ejecutar jobs sin volver a iniciar sesión.
+            </span>
+          </label>
+
+          <button id="loginButton" class="primary-button full-width" type="submit">
+            <span>Conectar con Five9</span>
+            <span class="button-arrow">→</span>
+          </button>
+
+          <p class="security-note">
+            La interfaz corre únicamente en <strong>127.0.0.1</strong>. La contraseña
+            permanece en memoria, salvo que actives el guardado cifrado para el Automation Engine.
+          </p>
+        </form>
+      </div>
+    </section>
+
+    <section id="dashboardView" class="dashboard hidden">
+      <header class="topbar glass-card">
+        <div class="brand brand-small">
+          <div class="brand-mark brand-mark-small" aria-hidden="true">
+            <strong>9</strong>
+          </div>
+          <div>
+            <p class="eyebrow">Five9 Admin Utility</p>
+            <h2>Profile Automation</h2>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <div class="connection-pill">
+            <span class="status-dot"></span>
+            <div>
+              <strong id="connectedUser">Conectado</strong>
+              <small id="connectedMeta">US · v13</small>
+            </div>
+          </div>
+          <button id="automationJumpButton" class="secondary-button" type="button">Automation Jobs</button>
+          <button id="apiCalculatorButton" class="secondary-button" type="button">Calculadora API</button>
+          <button id="refreshButton" class="secondary-button" type="button">Actualizar</button>
+          <button id="disconnectButton" class="ghost-button danger-text" type="button">Salir</button>
+        </div>
+      </header>
+
+      <div class="dashboard-body">
+        <aside class="dashboard-sidebar glass-card">
+          <div class="sidebar-brand-placeholder" aria-hidden="true"></div>
+          <nav class="sidebar-nav" aria-label="Configuraciones principales">
+            <button id="navMoveUsersButton" class="sidebar-nav-button is-active" type="button" data-dashboard-target="move-users">
+              <span class="sidebar-nav-title">Mover usuario de perfil</span>
+              <small>Transferencia entre User Profiles</small>
+            </button>
+            <button id="navProfileSkillsButton" class="sidebar-nav-button" type="button" data-dashboard-target="profile-skills">
+              <span class="sidebar-nav-title">Mover skill de perfil</span>
+              <small>Agregar o remover skills</small>
+            </button>
+            <button id="navAutomationButton" class="sidebar-nav-button" type="button" data-dashboard-target="automation">
+              <span class="sidebar-nav-title">Programar automatización</span>
+              <small>Jobs por horario o queue</small>
+            </button>
+          </nav>
+        </aside>
+
+        <div class="dashboard-content">
+      <section class="stats-grid">
+        <article class="stat-card glass-card">
+          <span>Perfiles disponibles</span>
+          <strong id="profilesCount">0</strong>
+          <small>Devueltos por Five9</small>
+        </article>
+        <article class="stat-card glass-card">
+          <span>Usuarios en origen</span>
+          <strong id="sourceCount">0</strong>
+          <small id="sourceCountLabel">Selecciona un perfil</small>
+        </article>
+        <article class="stat-card glass-card">
+          <span>Usuarios seleccionados</span>
+          <strong id="selectedCount">0</strong>
+          <small>Listos para mover</small>
+        </article>
+        <article class="stat-card glass-card">
+          <span>Usuarios en destino</span>
+          <strong id="targetCount">0</strong>
+          <small id="targetCountLabel">Selecciona un perfil</small>
+        </article>
+      </section>
+
+      <section id="moveUsersSection" class="workspace-grid dashboard-config-view is-active" data-dashboard-section="move-users">
+        <article class="transfer-panel glass-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Paso 1</p>
+              <h2>Configura el movimiento</h2>
+            </div>
+            <span class="section-badge">SOAP API</span>
+          </div>
+
+          <div class="profile-route">
+            <label class="profile-selector">
+              <span>Perfil origen</span>
+              <select id="sourceProfile"></select>
+            </label>
+
+            <div class="route-arrow" aria-hidden="true">→</div>
+
+            <label class="profile-selector">
+              <span>Perfil destino</span>
+              <select id="targetProfile"></select>
+            </label>
+          </div>
+
+          <div class="transfer-dual-grid">
+            <section class="profile-user-column source-profile-column">
+              <div class="profile-column-heading">
+                <div>
+                  <p class="eyebrow">Paso 2 · Origen</p>
+                  <h3>Agentes del perfil origen</h3>
+                </div>
+                <span id="sourcePanelCount" class="count-badge">0</span>
+              </div>
+
+              <div class="profile-column-toolbar">
+                <label class="search-box transfer-search">
+                  <span aria-hidden="true">⌕</span>
+                  <input id="userSearch" type="search" placeholder="Buscar agente en origen">
+                </label>
+                <button id="selectVisibleButton" class="secondary-button compact" type="button">Seleccionar visibles</button>
+                <button id="clearSelectionButton" class="ghost-button compact" type="button">Limpiar</button>
+              </div>
+
+              <div id="usersList" class="users-list transfer-users-list">
+                <div class="empty-state">
+                  <div class="empty-icon">◎</div>
+                  <h3>Selecciona un perfil origen</h3>
+                  <p>Los agentes aparecerán aquí para que puedas elegirlos.</p>
+                </div>
+              </div>
+            </section>
+
+            <div class="transfer-bridge" aria-hidden="true">
+              <div class="transfer-bridge-icon">→</div>
+              <strong id="transferBridgeCount">0</strong>
+              <small>seleccionados</small>
+            </div>
+
+            <section class="profile-user-column target-profile-column">
+              <div class="profile-column-heading">
+                <div>
+                  <p class="eyebrow">Destino + vista previa</p>
+                  <h3>Agentes del perfil destino</h3>
+                </div>
+                <span id="targetPanelCount" class="count-badge">0</span>
+              </div>
+
+              <div class="profile-column-toolbar target-toolbar">
+                <label class="search-box transfer-search">
+                  <span aria-hidden="true">⌕</span>
+                  <input id="targetUserSearch" type="search" placeholder="Buscar agente en destino">
+                </label>
+                <div class="preview-legend">
+                  <span><i class="legend-dot current"></i>Actual</span>
+                  <span><i class="legend-dot pending"></i>Se agregará</span>
+                </div>
+              </div>
+
+              <div id="targetUsersList" class="users-list transfer-users-list target-users-list">
+                <div class="empty-state">
+                  <div class="empty-icon">◎</div>
+                  <h3>Selecciona un perfil destino</h3>
+                  <p>Verás los agentes actuales y la vista previa del movimiento.</p>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="move-footer enhanced-move-footer">
+            <div class="move-summary">
+              <span id="moveSummaryText">Ningún usuario seleccionado</span>
+              <small id="moveProjectionText">El destino no tiene cambios pendientes.</small>
+              <small>El sistema intentará rollback si falla el perfil destino.</small>
+            </div>
+            <button id="moveButton" class="primary-button" type="button" disabled>
+              <span>Mover usuarios</span>
+              <span class="button-arrow">→</span>
+            </button>
+          </div>
+        </article>
+
+        <aside class="side-column">
+          <article class="activity-card glass-card">
+            <div class="section-heading compact-heading">
+              <div>
+                <p class="eyebrow">Sesión actual</p>
+                <h3>Actividad</h3>
+              </div>
+              <button id="clearActivityButton" class="ghost-button compact" type="button">Limpiar</button>
+            </div>
+            <div id="activityList" class="activity-list">
+              <div class="activity-item neutral">
+                <span class="activity-symbol">•</span>
+                <div>
+                  <strong>Aplicación lista</strong>
+                  <small>Conecta y selecciona los perfiles.</small>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="safety-card">
+            <span class="safety-icon">!</span>
+            <div>
+              <strong>Prueba primero con un usuario</strong>
+              <p>Valida el resultado en Five9 Administrator antes de ejecutar movimientos masivos.</p>
+            </div>
+          </article>
+        </aside>
+      </section>
+
+      <section id="profileSkillsSection" class="skills-panel glass-card dashboard-config-view" data-dashboard-section="profile-skills">
+        <div class="skills-header">
+          <div>
+            <p class="eyebrow">Administración de perfiles</p>
+            <h2>Skills del User Profile</h2>
+            <p class="skills-subtitle">
+              Agrega o remueve skills del perfil seleccionado. Los cambios se validan
+              contra el estado real devuelto por Five9.
+            </p>
+          </div>
+
+          <label class="skill-profile-selector">
+            <span>User Profile</span>
+            <select id="skillProfileSelect"></select>
+          </label>
+        </div>
+
+        <div class="skills-summary-grid">
+          <article>
+            <span>Skills del dominio</span>
+            <strong id="domainSkillsCount">0</strong>
+          </article>
+          <article>
+            <span>Asignados al perfil</span>
+            <strong id="assignedSkillsCount">0</strong>
+          </article>
+          <article class="summary-add">
+            <span>Para agregar</span>
+            <strong id="skillsToAddCount">0</strong>
+          </article>
+          <article class="summary-remove">
+            <span>Para remover</span>
+            <strong id="skillsToRemoveCount">0</strong>
+          </article>
+        </div>
+
+        <div class="skills-columns">
+          <article class="skill-column">
+            <div class="skill-column-heading">
+              <div>
+                <p class="eyebrow">Actualmente asignados</p>
+                <h3>Skills del perfil</h3>
+              </div>
+              <button id="selectAssignedVisibleButton" class="ghost-button compact" type="button">
+                Remover visibles
+              </button>
+            </div>
+
+            <label class="search-box skill-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="assignedSkillSearch" type="search" placeholder="Buscar skill asignado">
+            </label>
+
+            <div id="assignedSkillsList" class="skill-list"></div>
+          </article>
+
+          <div class="skills-divider" aria-hidden="true">
+            <span>−</span>
+            <span>+</span>
+          </div>
+
+          <article class="skill-column">
+            <div class="skill-column-heading">
+              <div>
+                <p class="eyebrow">Disponibles</p>
+                <h3>Skills del dominio</h3>
+              </div>
+              <button id="selectAvailableVisibleButton" class="ghost-button compact" type="button">
+                Agregar visibles
+              </button>
+            </div>
+
+            <label class="search-box skill-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="availableSkillSearch" type="search" placeholder="Buscar skill disponible">
+            </label>
+
+            <div id="availableSkillsList" class="skill-list"></div>
+          </article>
+        </div>
+
+        <div class="skills-footer">
+          <div>
+            <strong id="skillsChangeSummary">No hay cambios pendientes</strong>
+            <small>
+              Remover un skill del perfil puede afectar a todos los usuarios que dependen de ese perfil.
+            </small>
+          </div>
+          <div class="skills-footer-actions">
+            <button id="clearSkillChangesButton" class="secondary-button" type="button">
+              Limpiar cambios
+            </button>
+            <button id="applySkillChangesButton" class="primary-button" type="button" disabled>
+              <span>Aplicar cambios de skills</span>
+              <span class="button-arrow">→</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="automationSection" class="automation-panel glass-card dashboard-config-view" data-dashboard-section="automation">
+        <div class="automation-hero">
+          <div>
+            <p class="eyebrow">Automation Engine v4.4</p>
+            <h2>Jobs por horario y por volumen de queue</h2>
+            <p>
+              Programa cambios exactos, por ejemplo agregar un skill a las 5:00 PM,
+              o activa un refuerzo cuando una queue mantenga X llamadas durante un período definido.
+            </p>
+          </div>
+          <div class="engine-badge">
+            <span class="engine-pulse"></span>
+            <div>
+              <strong>Motor local activo</strong>
+              <small id="engineTimezone">Zona horaria del equipo</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="automation-stats">
+          <article>
+            <span>Configuration SOAP</span>
+            <strong id="automationSoapStatus">Conectado</strong>
+            <small>Perfiles, usuarios y skills</small>
+          </article>
+          <article>
+            <span>Supervisor REST</span>
+            <strong id="automationRestStatus">No conectado</strong>
+            <small>Snapshots de queues y active skills</small>
+          </article>
+          <article>
+            <span>Jobs configurados</span>
+            <strong id="automationJobsCount">0</strong>
+            <small id="automationEnabledCount">0 habilitados</small>
+          </article>
+          <article>
+            <span>Próxima ejecución</span>
+            <strong id="automationNextRun">—</strong>
+            <small id="automationNextRunJob">Sin jobs agendados</small>
+          </article>
+          <article>
+            <span>Protección REST</span>
+            <strong id="automationRateStatus">Normal</strong>
+            <small id="automationRateDetails">0 / 60 req/min</small>
+          </article>
+        </div>
+
+        <div class="automation-layout">
+          <div class="automation-main-column">
+            <article class="automation-card">
+              <div class="automation-card-heading">
+                <div>
+                  <p class="eyebrow">Nuevo job</p>
+                  <h3>Diseña la automatización</h3>
+                </div>
+                <span class="section-badge">Persistente</span>
+              </div>
+
+              <div class="automation-form-grid">
+                <label class="field-wide">
+                  <span>Nombre del job</span>
+                  <input id="jobName" type="text" placeholder="Ej. Refuerzo de Ventas a las 5 PM">
+                </label>
+
+                <label>
+                  <span>Tipo de trigger</span>
+                  <select id="jobTriggerType">
+                    <option value="schedule">Fecha y hora</option>
+                    <option value="queue">Volumen de queue</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>Acción</span>
+                  <select id="jobActionType">
+                    <option value="profile_skill">Agregar o remover skills de un User Profile</option>
+                    <option value="move_users">Mover usuarios entre User Profiles</option>
+                    <option value="agent_active_skill">Activar o desactivar queue en la sesión de un agente</option>
+                  </select>
+                </label>
+              </div>
+
+              <section id="scheduleTriggerFields" class="automation-subsection">
+                <div class="subsection-heading">
+                  <div>
+                    <p class="eyebrow">Trigger</p>
+                    <h4>Programación por fecha y hora</h4>
+                  </div>
+                </div>
+                <div class="automation-form-grid">
+                  <label>
+                    <span>Recurrencia</span>
+                    <select id="jobRecurrence">
+                      <option value="once">Una sola vez</option>
+                      <option value="daily">Todos los días</option>
+                      <option value="weekly">Días específicos de la semana</option>
+                    </select>
+                  </label>
+                  <label id="jobDateField">
+                    <span>Fecha</span>
+                    <input id="jobDate" type="date">
+                  </label>
+                  <label>
+                    <span>Hora local</span>
+                    <input id="jobTime" type="time" value="17:00">
+                  </label>
+                  <label>
+                    <span>Ventana de gracia</span>
+                    <select id="jobGraceMinutes">
+                      <option value="5">5 minutos</option>
+                      <option value="15" selected>15 minutos</option>
+                      <option value="30">30 minutos</option>
+                      <option value="60">60 minutos</option>
+                    </select>
+                  </label>
+                </div>
+                <p class="schedule-note">
+                  Los jobs usan la fecha, hora y zona horaria del equipo Windows que ejecuta el motor.
+                  Para revertir una acción en otra hora, crea un segundo job con la operación contraria.
+                </p>
+                <div id="jobWeekdays" class="weekday-picker hidden">
+                  <label><input type="checkbox" value="MON"><span>Lun</span></label>
+                  <label><input type="checkbox" value="TUE"><span>Mar</span></label>
+                  <label><input type="checkbox" value="WED"><span>Mié</span></label>
+                  <label><input type="checkbox" value="THU"><span>Jue</span></label>
+                  <label><input type="checkbox" value="FRI"><span>Vie</span></label>
+                  <label><input type="checkbox" value="SAT"><span>Sáb</span></label>
+                  <label><input type="checkbox" value="SUN"><span>Dom</span></label>
+                </div>
+              </section>
+
+              <section id="queueTriggerFields" class="automation-subsection hidden">
+                <div class="subsection-heading">
+                  <div>
+                    <p class="eyebrow">Trigger en tiempo real</p>
+                    <h4>Condición de la queue</h4>
+                  </div>
+                  <button id="testQueueButton" class="secondary-button compact" type="button">Probar snapshot</button>
+                </div>
+                <div class="automation-form-grid">
+                  <label class="field-wide">
+                    <span>Queue monitoreada</span>
+                    <select id="jobQueue"></select>
+                  </label>
+                  <label>
+                    <span>Activar cuando llamadas ≥</span>
+                    <input id="jobActivateAt" type="number" min="1" value="5">
+                  </label>
+                  <label>
+                    <span>Durante al menos</span>
+                    <div class="input-with-suffix"><input id="jobPersistence" type="number" min="0" value="30"><span>seg</span></div>
+                  </label>
+                  <label>
+                    <span>Recuperar cuando llamadas ≤</span>
+                    <input id="jobRecoverAt" type="number" min="0" value="2">
+                  </label>
+                  <label>
+                    <span>Durante al menos</span>
+                    <div class="input-with-suffix"><input id="jobRecovery" type="number" min="0" value="120"><span>seg</span></div>
+                  </label>
+                  <label>
+                    <span>Frecuencia de lectura</span>
+                    <div class="input-with-suffix"><input id="jobPollSeconds" type="number" min="5" value="10"><span>seg</span></div>
+                  </label>
+                  <label>
+                    <span>Cooldown entre acciones</span>
+                    <div class="input-with-suffix"><input id="jobCooldownSeconds" type="number" min="0" value="300"><span>seg</span></div>
+                  </label>
+                </div>
+                <div id="queueSnapshotResult" class="inline-result hidden"></div>
+              </section>
+
+              <section id="profileSkillActionFields" class="automation-subsection">
+                <div class="subsection-heading">
+                  <div>
+                    <p class="eyebrow">Acción</p>
+                    <h4>Modificar skills de un User Profile</h4>
+                  </div>
+                </div>
+                <div class="automation-form-grid">
+                  <label>
+                    <span>User Profile</span>
+                    <select id="jobProfile"></select>
+                  </label>
+                  <label>
+                    <span>Operación al activarse</span>
+                    <select id="jobProfileSkillOperation">
+                      <option value="add">Agregar skills</option>
+                      <option value="remove">Remover skills</option>
+                    </select>
+                  </label>
+                  <label class="field-wide">
+                    <span>Skills</span>
+                    <select id="jobSkills" multiple size="7"></select>
+                    <small class="field-help">Usa Ctrl o Shift para seleccionar varios.</small>
+                  </label>
+                </div>
+              </section>
+
+              <section id="moveUsersActionFields" class="automation-subsection hidden">
+                <div class="subsection-heading">
+                  <div>
+                    <p class="eyebrow">Acción</p>
+                    <h4>Mover usuarios entre perfiles</h4>
+                  </div>
+                  <span id="jobMoveSelectedCount" class="count-badge">0 seleccionados</span>
+                </div>
+                <div class="automation-form-grid">
+                  <label>
+                    <span>Perfil origen</span>
+                    <select id="jobSourceProfile"></select>
+                  </label>
+                  <label>
+                    <span>Perfil destino</span>
+                    <select id="jobTargetProfile"></select>
+                  </label>
+                </div>
+
+                <div class="job-agent-picker move-agent-picker">
+                  <div class="job-agent-picker-heading">
+                    <label class="search-box job-agent-search">
+                      <span aria-hidden="true">⌕</span>
+                      <input id="jobMoveUserSearch" type="search" placeholder="Buscar agente del perfil origen">
+                    </label>
+                    <div class="job-picker-actions">
+                      <button id="jobMoveSelectVisible" class="secondary-button compact" type="button">Seleccionar visibles</button>
+                      <button id="jobMoveClearUsers" class="ghost-button compact" type="button">Limpiar</button>
+                    </div>
+                  </div>
+                  <div id="jobMoveAvailableUsers" class="job-agent-list"></div>
+                </div>
+                <small class="field-help">La lista se carga directamente desde el User Profile origen; ya no necesitas escribir usernames manualmente.</small>
+              </section>
+
+              <section id="activeSkillActionFields" class="automation-subsection hidden">
+                <div class="subsection-heading">
+                  <div>
+                    <p class="eyebrow">Acción recomendada para overflow</p>
+                    <h4>Active queue de agentes priorizados</h4>
+                  </div>
+                  <span id="jobActiveSelectedCount" class="count-badge">0 seleccionados</span>
+                </div>
+                <div class="automation-form-grid">
+                  <label>
+                    <span>Queue</span>
+                    <select id="jobActiveSkill"></select>
+                  </label>
+                  <label>
+                    <span>Operación al activarse</span>
+                    <select id="jobActiveOperation">
+                      <option value="add">Activar queue</option>
+                      <option value="remove">Desactivar queue</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="priority-agent-picker">
+                  <section class="priority-agent-column">
+                    <div class="priority-column-heading">
+                      <div>
+                        <span>Agentes disponibles</span>
+                        <strong>Selecciona uno o varios</strong>
+                      </div>
+                    </div>
+                    <label class="search-box job-agent-search">
+                      <span aria-hidden="true">⌕</span>
+                      <input id="jobActiveAgentSearch" type="search" placeholder="Buscar agente visible">
+                    </label>
+                    <div id="jobActiveAvailableAgents" class="job-agent-list priority-available-list"></div>
+                  </section>
+
+                  <div class="priority-picker-arrow" aria-hidden="true">→</div>
+
+                  <section class="priority-agent-column selected-priority-column">
+                    <div class="priority-column-heading">
+                      <div>
+                        <span>Orden de ejecución</span>
+                        <strong>Prioridad 1 se procesa primero</strong>
+                      </div>
+                      <button id="jobActiveClearAgents" class="ghost-button compact" type="button">Limpiar</button>
+                    </div>
+                    <div id="jobActiveSelectedAgents" class="selected-priority-list"></div>
+                  </section>
+                </div>
+                <p class="action-warning">
+                  Cada agente debe tener la queue asignada previamente. El motor obtiene el estado original de todos,
+                  procesa la acción en el orden indicado y restaura cada agente durante la recuperación.
+                </p>
+              </section>
+
+              <div class="job-options-row">
+                <label class="toggle-option">
+                  <input id="jobDryRun" type="checkbox" checked>
+                  <span><strong>Dry Run</strong><small>Simula la acción sin modificar Five9.</small></span>
+                </label>
+                <label class="toggle-option">
+                  <input id="jobEnabled" type="checkbox" checked>
+                  <span><strong>Habilitar al crear</strong><small>El motor comenzará a evaluarlo inmediatamente.</small></span>
+                </label>
+              </div>
+
+              <div class="automation-form-actions">
+                <button id="resetJobFormButton" class="secondary-button" type="button">Limpiar formulario</button>
+                <button id="createJobButton" class="primary-button" type="button">
+                  <span>Crear Automation Job</span><span class="button-arrow">→</span>
+                </button>
+              </div>
+            </article>
+
+            <article class="automation-card">
+              <div class="automation-card-heading">
+                <div>
+                  <p class="eyebrow">Jobs guardados</p>
+                  <h3>Control y seguimiento</h3>
+                </div>
+                <button id="refreshJobsButton" class="secondary-button compact" type="button">Actualizar</button>
+              </div>
+              <div id="jobsList" class="jobs-list">
+                <div class="empty-state compact-empty">
+                  <div class="empty-icon">⌁</div>
+                  <h3>No hay jobs</h3>
+                  <p>Crea la primera automatización con el formulario superior.</p>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <aside class="automation-side-column">
+            <article class="automation-card rest-connect-card">
+              <div class="automation-card-heading">
+                <div>
+                  <p class="eyebrow">Sensor de queues</p>
+                  <h3>Supervisor REST</h3>
+                </div>
+                <span id="restConnectionIndicator" class="connection-state offline">Offline</span>
+              </div>
+              <p class="muted-copy">
+                Esta conexión es independiente del Admin SOAP. Usa preferiblemente un usuario
+                dedicado con rol y permisos de Supervisor.
+              </p>
+              <div class="rest-form">
+                <label>
+                  <span>Data center</span>
+                  <select id="restDataCenter">
+                    <option value="US">US · app.five9.com</option>
+                    <option value="UK">UK · app.five9.eu</option>
+                    <option value="Canada">Canada · app.five9.ca</option>
+                    <option value="Frankfurt">Frankfurt · eu.five9.com</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Supervisor username</span>
+                  <input id="restUsername" type="text" placeholder="supervisor@empresa.com">
+                </label>
+                <label>
+                  <span>Contraseña</span>
+                  <input id="restPassword" type="password" placeholder="••••••••••••">
+                </label>
+                <label class="save-credentials-option compact-save">
+                  <input id="saveRestCredentials" type="checkbox">
+                  <span>Guardar cifrada para jobs desatendidos.</span>
+                </label>
+                <div class="rest-actions">
+                  <button id="restConnectButton" class="primary-button" type="button">Conectar REST</button>
+                  <button id="restDisconnectButton" class="ghost-button danger-text" type="button">Desconectar</button>
+                </div>
+              </div>
+              <div id="restConnectionDetails" class="rest-details">No conectado.</div>
+              <div id="restConnectionWarning" class="rest-warning hidden"></div>
+              <div class="request-protection-panel">
+                <div class="request-protection-heading">
+                  <div>
+                    <span>Protección de requests</span>
+                    <strong id="restProtectionState">Lista</strong>
+                  </div>
+                  <span id="restProtectionBadge" class="connection-state online">Normal</span>
+                </div>
+
+                <div id="restProtectionMessage" class="request-protection-message">
+                  El sensor se detendrá automáticamente ante un HTTP 429.
+                </div>
+
+                <div class="request-protection-metrics">
+                  <div>
+                    <span>Último minuto</span>
+                    <strong id="restRequestsMinute">0 / 60</strong>
+                  </div>
+                  <div>
+                    <span>Snapshots REST</span>
+                    <strong id="restSnapshotRequests">0</strong>
+                  </div>
+                  <div>
+                    <span>Cache compartido</span>
+                    <strong id="restSnapshotCacheHits">0</strong>
+                  </div>
+                </div>
+
+                <div class="request-limit-setting">
+                  <label>
+                    <span>Límite preventivo interno por minuto</span>
+                    <input id="restMaxRequestsPerMinute" type="number" min="10" max="300" step="1" value="60">
+                  </label>
+                  <button id="saveRestProtectionButton" class="secondary-button compact" type="button">
+                    Guardar límite
+                  </button>
+                </div>
+                <small class="request-protection-help">
+                  Este límite es una protección nuestra; no reemplaza el rate limit dinámico de Five9.
+                </small>
+              </div>
+            </article>
+
+            <article class="automation-card startup-card">
+              <div class="automation-card-heading">
+                <div>
+                  <p class="eyebrow">Ejecución desatendida</p>
+                  <h3>Inicio automático</h3>
+                </div>
+              </div>
+              <ol>
+                <li>Guarda las credenciales cifradas.</li>
+                <li>Ejecuta <code>Install-Automation-Startup.bat</code>.</li>
+                <li>El motor iniciará con tu sesión de Windows.</li>
+              </ol>
+              <p class="muted-copy">
+                El cifrado DPAPI solo permite descifrar las credenciales con el mismo usuario de Windows.
+              </p>
+            </article>
+
+            <article class="automation-card safety-automation-card">
+              <div class="automation-card-heading">
+                <div>
+                  <p class="eyebrow">Checklist</p>
+                  <h3>Antes de activar producción</h3>
+                </div>
+              </div>
+              <ul>
+                <li>Comienza con Dry Run.</li>
+                <li>Usa perfiles y queues de laboratorio.</li>
+                <li>Define umbrales distintos para activación y recuperación.</li>
+                <li>No uses las credenciales personales de un supervisor activo.</li>
+                <li>Revisa los CSV dentro de la carpeta <code>logs</code>.</li>
+              </ul>
+            </article>
+          </aside>
+        </div>
+      </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="loadingOverlay" class="loading-overlay hidden" aria-live="polite">
+    <div class="loader-card glass-card">
+      <div class="spinner"></div>
+      <strong id="loadingTitle">Procesando</strong>
+      <span id="loadingMessage">Espera mientras Five9 responde.</span>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal-backdrop hidden" role="dialog" aria-modal="true"
+       aria-labelledby="confirmTitle">
+    <div class="modal-card">
+      <button id="closeModalButton" class="modal-close" type="button" aria-label="Cerrar">×</button>
+      <p class="eyebrow">Confirmación requerida</p>
+      <h2 id="confirmTitle">Mover usuarios</h2>
+      <p id="confirmDescription" class="modal-copy"></p>
+
+      <div class="modal-route">
+        <div>
+          <span>Origen</span>
+          <strong id="confirmSource">—</strong>
+        </div>
+        <span class="route-arrow">→</span>
+        <div>
+          <span>Destino</span>
+          <strong id="confirmTarget">—</strong>
+        </div>
+      </div>
+
+      <div id="confirmUsers" class="confirm-users"></div>
+
+      <label class="confirmation-field">
+        <span>Escribe <strong>MOVER</strong> para confirmar</span>
+        <input id="confirmationInput" type="text" autocomplete="off" placeholder="MOVER">
+      </label>
+
+      <div class="modal-actions">
+        <button id="cancelMoveButton" class="secondary-button" type="button">Cancelar</button>
+        <button id="confirmMoveButton" class="primary-button" type="button" disabled>
+          Ejecutar movimiento
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="skillsConfirmModal" class="modal-backdrop hidden" role="dialog" aria-modal="true"
+       aria-labelledby="skillsConfirmTitle">
+    <div class="modal-card">
+      <button id="closeSkillsModalButton" class="modal-close" type="button" aria-label="Cerrar">×</button>
+      <p class="eyebrow">Confirmación requerida</p>
+      <h2 id="skillsConfirmTitle">Actualizar skills del perfil</h2>
+      <p id="skillsConfirmDescription" class="modal-copy"></p>
+
+      <div class="skill-change-preview">
+        <article class="skill-change-card add-card">
+          <span>Agregar</span>
+          <strong id="confirmAddSkillsCount">0</strong>
+          <div id="confirmAddSkills" class="confirm-users"></div>
+        </article>
+        <article class="skill-change-card remove-card">
+          <span>Remover</span>
+          <strong id="confirmRemoveSkillsCount">0</strong>
+          <div id="confirmRemoveSkills" class="confirm-users"></div>
+        </article>
+      </div>
+
+      <label class="confirmation-field">
+        <span>Escribe <strong>ACTUALIZAR</strong> para confirmar</span>
+        <input id="skillsConfirmationInput" type="text" autocomplete="off" placeholder="ACTUALIZAR">
+      </label>
+
+      <div class="modal-actions">
+        <button id="cancelSkillsButton" class="secondary-button" type="button">Cancelar</button>
+        <button id="confirmSkillsButton" class="primary-button" type="button" disabled>
+          Aplicar cambios
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="apiCalculatorModal" class="modal-backdrop hidden calculator-backdrop" role="dialog" aria-modal="true"
+       aria-labelledby="apiCalculatorTitle">
+    <div class="modal-card calculator-modal-card">
+      <button id="closeApiCalculatorButton" class="modal-close" type="button" aria-label="Cerrar">×</button>
+      <div class="calculator-title-row">
+        <div>
+          <p class="eyebrow">Planificador de carga</p>
+          <h2 id="apiCalculatorTitle">Calculadora de consumo API</h2>
+          <p class="modal-copy">Simula el sensor continuo, las acciones REST y los cambios SOAP antes de crear los jobs.</p>
+        </div>
+        <button id="loadCurrentJobsCalculator" class="secondary-button compact" type="button">Usar jobs actuales</button>
+      </div>
+
+      <div class="calculator-grid">
+        <section class="calculator-section">
+          <div class="calculator-section-heading">
+            <span>Supervisor REST</span>
+            <strong>Snapshots de queues</strong>
+          </div>
+          <div class="calculator-fields">
+            <label><span>Jobs continuos</span><input id="calcQueueJobs" type="number" min="0" value="20"></label>
+            <label><span>Queues diferentes</span><input id="calcDistinctQueues" type="number" min="0" value="20"></label>
+            <label><span>Snapshot cada</span><div class="input-with-suffix"><input id="calcPollSeconds" type="number" min="5" value="10"><span>seg</span></div></label>
+            <label><span>Horas activas/día</span><input id="calcHoursDay" type="number" min="0" max="24" step="0.5" value="8"></label>
+            <label><span>Límite preventivo</span><div class="input-with-suffix"><input id="calcInternalLimit" type="number" min="10" max="300" value="60"><span>req/min</span></div></label>
+          </div>
+        </section>
+
+        <section class="calculator-section">
+          <div class="calculator-section-heading">
+            <span>Supervisor REST</span>
+            <strong>Acciones Active Queue</strong>
+          </div>
+          <div class="calculator-fields">
+            <label><span>Activaciones/día</span><input id="calcActiveActivations" type="number" min="0" value="0"></label>
+            <label><span>Recuperaciones/día</span><input id="calcActiveRecoveries" type="number" min="0" value="0"></label>
+            <label><span>Agentes por evento</span><input id="calcAgentsPerEvent" type="number" min="0" value="1"></label>
+          </div>
+          <small class="calculator-note">Estimación conservadora: activación ≈ 1 GET + 1 PUT por agente; recuperación ≈ 1 PUT por agente.</small>
+        </section>
+
+        <section class="calculator-section">
+          <div class="calculator-section-heading">
+            <span>Configuration SOAP</span>
+            <strong>Cambios por día</strong>
+          </div>
+          <div class="calculator-fields">
+            <label><span>Cambios de skill/profile</span><input id="calcProfileSkillChanges" type="number" min="0" value="80"></label>
+            <label><span>Movimientos entre perfiles</span><input id="calcProfileMoves" type="number" min="0" value="0"></label>
+            <label><span>Interfaz abierta</span><div class="input-with-suffix"><input id="calcUiOpenHours" type="number" min="0" max="24" step="0.5" value="0"><span>h/día</span></div></label>
+          </div>
+          <small class="calculator-note">Estimación exitosa: skill/profile ≈ 3 consultas + 1 modificación; movimiento ≈ 4 consultas + 2 modificaciones. Con la interfaz abierta, el catálogo actual se refresca cada 5 s y añade consultas SOAP.</small>
+        </section>
+      </div>
+
+      <div class="calculator-results">
+        <article id="calcRestResultCard" class="calculator-result-card">
+          <span>Sensor REST</span>
+          <strong id="calcRestPerMinute">0 req/min</strong>
+          <small id="calcRestDetail">—</small>
+        </article>
+        <article id="calcRestDayCard" class="calculator-result-card">
+          <span>REST diario</span>
+          <strong id="calcRestPerDay">0</strong>
+          <small id="calcRestActionDetail">—</small>
+        </article>
+        <article id="calcSoapQueryCard" class="calculator-result-card">
+          <span>SOAP consultas</span>
+          <strong id="calcSoapQueries">0 / día</strong>
+          <small id="calcSoapQueryPercent">0% del límite diario</small>
+        </article>
+        <article id="calcSoapModifyCard" class="calculator-result-card">
+          <span>SOAP modificaciones</span>
+          <strong id="calcSoapModifies">0 / día</strong>
+          <small id="calcSoapModifyPercent">0% del límite diario</small>
+        </article>
+      </div>
+
+      <div id="calcRecommendation" class="calculator-recommendation"></div>
+      <div class="calculator-disclaimer">
+        El límite REST real de Five9 puede ser dinámico. Esta calculadora compara el sensor con nuestro límite preventivo;
+        si Five9 devuelve HTTP 429, <strong>resetEpochSeconds</strong> sigue siendo la autoridad para pausar y reanudar.
+        Los límites SOAP son límites de dominio compartidos con otras integraciones.
+      </div>
+
+      <div class="modal-actions calculator-actions">
+        <button id="resetApiCalculatorButton" class="secondary-button" type="button">Restablecer</button>
+        <button id="closeApiCalculatorFooterButton" class="primary-button" type="button">Cerrar calculadora</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+  <script src="automation.js"></script>
+</body>
+</html>

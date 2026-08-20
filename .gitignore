@@ -1,0 +1,8 @@
+node_modules/
+data/runtime.json
+data/soap-credentials.json
+data/rest-credentials.json
+data/jobs.json
+data/automation-settings.json
+logs/*.csv
+.env

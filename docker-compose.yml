@@ -1,0 +1,12 @@
+services:
+  five9:
+    build: .
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - PORT=8765
+      - FIVE9_ENCRYPTION_KEY=${FIVE9_ENCRYPTION_KEY}
+    restart: unless-stopped

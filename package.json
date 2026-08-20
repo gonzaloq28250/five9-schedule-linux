@@ -1,0 +1,19 @@
+{
+  "name": "five9-schedule-linux",
+  "version": "1.0.0",
+  "description": "Five9 Profile Automation - Linux/Docker edition",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "axios": "^1.7.0",
+    "fast-xml-parser": "^4.5.0",
+    "uuid": "^10.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
