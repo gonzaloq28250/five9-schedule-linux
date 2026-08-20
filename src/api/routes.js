@@ -32,12 +32,18 @@ module.exports = function createRouter(state) {
   router.post('/api/connect', async (req, res, next) => {
     try {
       const { dataCenter, apiVersion, username, password, saveCredentials } = req.body;
+      console.log(`[SOAP] Conectando: dc=${dataCenter}, ver=${apiVersion}, user=${username}`);
       soapClient.connect(dataCenter, apiVersion, username, password);
+      console.log(`[SOAP] URL: ${soapClient.apiUrl}`);
       const profiles = await soapClient.getProfiles();
+      console.log(`[SOAP] Conectado. ${profiles.length} perfiles.`);
       soapClient.connected = true;
       if (saveCredentials) saveCredential(SOAP_CREDS, { username, password, dataCenter, apiVersion });
       res.json({ success: true, profiles, username, dataCenter, apiVersion });
-    } catch (e) { next(e); }
+    } catch (e) {
+      console.error(`[SOAP] Error:`, e.message);
+      next(e);
+    }
   });
 
   // SOAP Disconnect

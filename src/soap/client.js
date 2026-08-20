@@ -107,7 +107,7 @@ class SoapClient {
     this.username = username;
     this.dataCenter = dataCenter;
     this.version = apiVersion;
-    this.connected = false;
+    this.connected = true;
   }
 
   disconnect() {

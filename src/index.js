@@ -35,6 +35,7 @@ async function main() {
 
   // Error handler
   app.use((err, req, res, next) => {
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err.message);
     res.status(400).json({ success: false, error: err.message || 'Error interno.' });
   });
 
