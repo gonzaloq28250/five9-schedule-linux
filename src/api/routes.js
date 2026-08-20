@@ -221,12 +221,40 @@ module.exports = function createRouter(state) {
       const job = findJob(jobs, req.body.id);
       if (!job) throw new Error('Job no encontrado.');
       const { invokeJobAction } = require('../engine/actions');
-      const result = await invokeJobAction(job, 'scheduled', soapClient, restClient, restProtection, settings);
-      job.state.lastRun = new Date().toISOString();
-      job.state.executionCount++;
-      job.state.lastResult = result.message;
+      const { addHistoryEntry } = require('../engine/jobs');
+      try {
+        const result = await invokeJobAction(job, 'scheduled', soapClient, restClient, restProtection, settings);
+        job.state.lastRun = new Date().toISOString();
+        job.state.executionCount++;
+        job.state.lastResult = result.message;
+        addHistoryEntry(job, 'SUCCESS', 'manual', result.message);
+      } catch (actionErr) {
+        job.state.lastResult = actionErr.message;
+        addHistoryEntry(job, 'FAILED', 'manual', actionErr.message);
+      }
       saveJobs(jobs);
       res.json({ success: true });
+    } catch (e) { next(e); }
+  });
+
+  // History
+  router.get('/api/jobs/:id/history', (req, res, next) => {
+    try {
+      const job = findJob(jobs, req.params.id);
+      if (!job) throw new Error('Job no encontrado.');
+      res.json({ success: true, history: job.state.history || [] });
+    } catch (e) { next(e); }
+  });
+
+  // Pending runs (next N executions)
+  router.get('/api/jobs/:id/pending', (req, res, next) => {
+    try {
+      const job = findJob(jobs, req.params.id);
+      if (!job) throw new Error('Job no encontrado.');
+      const { getNextRuns } = require('../engine/scheduler');
+      const count = Math.min(Math.max(parseInt(req.query.count) || 5, 1), 20);
+      const runs = getNextRuns(job, count);
+      res.json({ success: true, pending: runs });
     } catch (e) { next(e); }
   });
 

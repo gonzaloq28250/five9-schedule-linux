@@ -1,6 +1,7 @@
 const { getPropertyValue, getWeekdayCode } = require('../utils/helpers');
 const { logAutomationJob } = require('../utils/logger');
 const { invokeJobAction } = require('./actions');
+const { addHistoryEntry } = require('./jobs');
 
 function getNextScheduleRun(job, from = new Date()) {
   const schedule = job.schedule;
@@ -41,6 +42,23 @@ function getNextScheduleRun(job, from = new Date()) {
   throw new Error(`Recurrence no soportada: ${recurrence}`);
 }
 
+function getNextRuns(job, count = 5) {
+  if (job.triggerType !== 'schedule') return [];
+  if (!job.schedule) return [];
+  const runs = [];
+  let from = new Date();
+  for (let i = 0; i < count; i++) {
+    try {
+      const next = getNextScheduleRun(job, from);
+      runs.push(next.toISOString());
+      from = next;
+    } catch {
+      break;
+    }
+  }
+  return runs;
+}
+
 function initializeNextRun(job) {
   if (job.triggerType !== 'schedule') return;
   try {
@@ -66,6 +84,7 @@ function runScheduleJob(job, soapClient, restClient, restProtection, settings) {
   if (now > new Date(nextRun.getTime() + graceMinutes * 60000)) {
     job.state.lastResult = `MISFIRE: ventana de ejecucion perdida (grace ${graceMinutes}m).`;
     logAutomationJob(job, 'scheduled', 'MISFIRE', job.state.lastResult, job.state.lastMetrics, restProtection, settings);
+    addHistoryEntry(job, 'MISFIRE', 'scheduled', job.state.lastResult);
     if (job.schedule.recurrence === 'once') {
       job.enabled = false;
       job.state.nextRun = '';
@@ -85,6 +104,7 @@ function runScheduleJob(job, soapClient, restClient, restProtection, settings) {
       job.state.lastRun = now.toISOString();
       job.state.lastResult = result.message;
       logAutomationJob(job, 'scheduled', 'SUCCESS', result.message, job.state.lastMetrics, restProtection, settings);
+      addHistoryEntry(job, 'SUCCESS', 'scheduled', result.message, job.state.lastMetrics);
 
       if (job.schedule.recurrence === 'once') {
         job.enabled = false;
@@ -99,6 +119,7 @@ function runScheduleJob(job, soapClient, restClient, restProtection, settings) {
     .catch(err => {
       job.state.lastResult = err.message;
       logAutomationJob(job, 'scheduled', 'FAILED', err.message, job.state.lastMetrics, restProtection, settings);
+      addHistoryEntry(job, 'FAILED', 'scheduled', err.message, job.state.lastMetrics);
       if (job.schedule.recurrence === 'once') {
         job.enabled = false;
         job.state.nextRun = '';
@@ -151,10 +172,12 @@ function runQueueJob(job, restClient, restProtection, settings, soapClient) {
     }).catch(err => {
       job.state.lastResult = err.message;
       logAutomationJob(job, 'queue_check', 'FAILED', err.message, job.state.lastMetrics, restProtection, settings);
+      addHistoryEntry(job, 'FAILED', 'queue_check', err.message, job.state.lastMetrics);
     });
   } catch (err) {
     job.state.lastResult = err.message;
     logAutomationJob(job, 'queue_check', 'FAILED', err.message, job.state.lastMetrics, restProtection, settings);
+    addHistoryEntry(job, 'FAILED', 'queue_check', err.message, job.state.lastMetrics);
   }
 }
 
@@ -197,12 +220,14 @@ function processQueuePhase(job, metrics, restClient, restProtection, settings, s
             job.state.lastResult = result.message;
             if (cooldownSeconds > 0) job.state.cooldownUntil = new Date(now.getTime() + cooldownSeconds * 1000).toISOString();
             logAutomationJob(job, 'recovery', 'SUCCESS', result.message, metrics, restProtection, settings);
+            addHistoryEntry(job, 'SUCCESS', 'recover', result.message, metrics);
           })
           .catch(err => {
             job.state.recoverySince = '';
             if (cooldownSeconds > 0) job.state.cooldownUntil = new Date(now.getTime() + cooldownSeconds * 1000).toISOString();
             job.state.lastResult = err.message;
             logAutomationJob(job, 'recovery', 'FAILED', err.message, metrics, restProtection, settings);
+            addHistoryEntry(job, 'FAILED', 'recover', err.message, metrics);
           });
       } else {
         const remaining = Math.ceil(recoverySeconds - elapsed);
@@ -234,12 +259,14 @@ function processQueuePhase(job, metrics, restClient, restProtection, settings, s
           job.state.lastResult = result.message;
           if (cooldownSeconds > 0) job.state.cooldownUntil = new Date(now.getTime() + cooldownSeconds * 1000).toISOString();
           logAutomationJob(job, 'activation', 'SUCCESS', result.message, metrics, restProtection, settings);
+          addHistoryEntry(job, 'SUCCESS', 'activate', result.message, metrics);
         })
         .catch(err => {
           job.state.conditionSince = '';
           if (cooldownSeconds > 0) job.state.cooldownUntil = new Date(now.getTime() + cooldownSeconds * 1000).toISOString();
           job.state.lastResult = err.message;
           logAutomationJob(job, 'activation', 'FAILED', err.message, metrics, restProtection, settings);
+          addHistoryEntry(job, 'FAILED', 'activate', err.message, metrics);
         });
     } else {
       const remaining = Math.ceil(persistenceSeconds - elapsed);
@@ -284,6 +311,7 @@ class AutomationEngine {
       } catch (err) {
         job.state.lastResult = err.message;
         logAutomationJob(job, 'engine', 'FAILED', err.message, job.state.lastMetrics, this.restProtection, this.settings);
+        addHistoryEntry(job, 'FAILED', 'engine', err.message, job.state.lastMetrics);
       }
 
       if (JSON.stringify(job.state) !== before) this.changed = true;
@@ -307,4 +335,4 @@ class AutomationEngine {
   }
 }
 
-module.exports = { AutomationEngine, getNextScheduleRun, initializeNextRun };
+module.exports = { AutomationEngine, getNextScheduleRun, getNextRuns, initializeNextRun };

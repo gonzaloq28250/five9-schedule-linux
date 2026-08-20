@@ -743,6 +743,71 @@
       </div>`;
   }
 
+  function historyStatusClass(status) {
+    if (status === "SUCCESS") return "status-good";
+    if (status === "MISFIRE") return "status-warn";
+    return "status-bad";
+  }
+
+  function historyTriggerLabel(trigger) {
+    const labels = { scheduled: "Programada", queue_check: "Cola", recover: "Recuperación", activate: "Activación", manual: "Manual", engine: "Motor" };
+    return labels[trigger] || trigger;
+  }
+
+  async function loadJobHistory(jobId) {
+    const container = document.querySelector(`[data-history-panel="${jobId}"]`);
+    if (!container) return;
+    container.innerHTML = `<div class="job-detail-loading">Cargando historial...</div>`;
+    try {
+      const result = await api(`/api/jobs/${jobId}/history`);
+      const history = result.history || [];
+      if (!history.length) {
+        container.innerHTML = `<div class="job-history-empty">Sin ejecuciones registradas.</div>`;
+        return;
+      }
+      container.innerHTML = history.map(entry => {
+        const time = formatDateTime(entry.timestamp);
+        const statusClass = historyStatusClass(entry.status);
+        const trigger = historyTriggerLabel(entry.trigger);
+        const msg = escapeHtml(entry.message || "");
+        return `
+          <div class="job-history-row">
+            <span class="history-time">${escapeHtml(time)}</span>
+            <span class="history-trigger">${escapeHtml(trigger)}</span>
+            <span class="history-status ${statusClass}">${escapeHtml(entry.status)}</span>
+            <span class="history-message">${msg}</span>
+          </div>`;
+      }).join("");
+    } catch (error) {
+      container.innerHTML = `<div class="job-history-empty">Error: ${escapeHtml(error.message)}</div>`;
+    }
+  }
+
+  async function loadJobPending(jobId) {
+    const container = document.querySelector(`[data-pending-panel="${jobId}"]`);
+    if (!container) return;
+    container.innerHTML = `<div class="job-detail-loading">Calculando próximas ejecuciones...</div>`;
+    try {
+      const result = await api(`/api/jobs/${jobId}/pending?count=5`);
+      const pending = result.pending || [];
+      if (!pending.length) {
+        container.innerHTML = `<div class="job-history-empty">Sin ejecuciones pendientes (recurring o sin schedule).</div>`;
+        return;
+      }
+      container.innerHTML = pending.map((ts, i) => {
+        const time = formatDateTime(ts);
+        const relative = relativeTime(ts);
+        return `
+          <div class="job-history-row">
+            <span class="history-time">${escapeHtml(time)}</span>
+            <span class="history-status status-scheduled">${escapeHtml(relative)}</span>
+          </div>`;
+      }).join("");
+    } catch (error) {
+      container.innerHTML = `<div class="job-history-empty">Error: ${escapeHtml(error.message)}</div>`;
+    }
+  }
+
   function renderJobs() {
     const jobs = automationState.jobs || [];
     el.jobsCount.textContent = String(jobs.length);
@@ -778,6 +843,7 @@
       const stateLabel = !job.enabled ? "Pausado" : phase === "active" ? "Refuerzo activo" : "Evaluando";
       const lastResult = job.state?.lastResult || "Esperando ejecución";
       const nextRun = job.state?.nextRun ? formatDateTime(job.state.nextRun) : job.triggerType === "queue" ? "Monitoreo continuo" : "—";
+      const historyCount = job.state?.history?.length || 0;
       return `
         <article class="job-card ${stateClass}" data-job-id="${escapeHtml(job.id)}">
           <div class="job-card-top">
@@ -807,8 +873,12 @@
           <div class="job-result ${lastResult.toLowerCase().includes("error") || lastResult.toLowerCase().includes("fall") ? "error" : ""}">${escapeHtml(lastResult)}</div>
           <div class="job-actions">
             <button class="secondary-button compact" type="button" data-job-run>${phase === "active" && job.triggerType === "queue" ? "Recuperar ahora" : "Ejecutar ahora"}</button>
+            <button class="ghost-button compact" type="button" data-job-history>Historial${historyCount ? ` (${historyCount})` : ""}</button>
+            ${job.triggerType === "schedule" ? '<button class="ghost-button compact" type="button" data-job-pending>Próximas</button>' : ""}
             <button class="ghost-button compact danger-text" type="button" data-job-delete>Eliminar</button>
           </div>
+          <div class="job-detail-panel hidden" data-history-panel="${escapeHtml(job.id)}"></div>
+          <div class="job-detail-panel hidden" data-pending-panel="${escapeHtml(job.id)}"></div>
         </article>`;
     }).join("");
 
@@ -820,6 +890,28 @@
     });
     el.jobsList.querySelectorAll("[data-job-delete]").forEach(button => {
       button.addEventListener("click", event => deleteJob(event.target.closest(".job-card").dataset.jobId));
+    });
+    el.jobsList.querySelectorAll("[data-job-history]").forEach(button => {
+      button.addEventListener("click", async event => {
+        const card = event.target.closest(".job-card");
+        const jobId = card.dataset.jobId;
+        const panel = card.querySelector(`[data-history-panel="${jobId}"]`);
+        const pendingPanel = card.querySelector(`[data-pending-panel="${jobId}"]`);
+        if (pendingPanel) pendingPanel.classList.add("hidden");
+        panel.classList.toggle("hidden");
+        if (!panel.classList.contains("hidden")) await loadJobHistory(jobId);
+      });
+    });
+    el.jobsList.querySelectorAll("[data-job-pending]").forEach(button => {
+      button.addEventListener("click", async event => {
+        const card = event.target.closest(".job-card");
+        const jobId = card.dataset.jobId;
+        const panel = card.querySelector(`[data-pending-panel="${jobId}"]`);
+        const historyPanel = card.querySelector(`[data-history-panel="${jobId}"]`);
+        if (historyPanel) historyPanel.classList.add("hidden");
+        panel.classList.toggle("hidden");
+        if (!panel.classList.contains("hidden")) await loadJobPending(jobId);
+      });
     });
   }
 

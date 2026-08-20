@@ -5,6 +5,8 @@ const { DATA_DIR, getPropertyValue } = require('../utils/helpers');
 
 const JOBS_PATH = path.join(DATA_DIR, 'jobs.json');
 
+const MAX_HISTORY = 50;
+
 const DEFAULT_JOB_STATE = {
   phase: 'idle',
   conditionSince: '',
@@ -20,7 +22,8 @@ const DEFAULT_JOB_STATE = {
   originalActiveSkillsByAgent: [],
   hasOriginalActiveSkillsSnapshot: false,
   pendingActiveSkillRollback: false,
-  executionCount: 0
+  executionCount: 0,
+  history: []
 };
 
 function addMissingJobState(job) {
@@ -28,7 +31,22 @@ function addMissingJobState(job) {
   for (const [key, val] of Object.entries(DEFAULT_JOB_STATE)) {
     if (job.state[key] === undefined) job.state[key] = val;
   }
+  if (!Array.isArray(job.state.history)) job.state.history = [];
   return job;
+}
+
+function addHistoryEntry(job, status, trigger, message, metrics = null) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    status,
+    trigger,
+    message: String(message || '').substring(0, 500),
+    metrics
+  };
+  job.state.history.unshift(entry);
+  if (job.state.history.length > MAX_HISTORY) {
+    job.state.history = job.state.history.slice(0, MAX_HISTORY);
+  }
 }
 
 function loadJobs() {
@@ -89,4 +107,4 @@ function removeJob(jobs, id) {
   return jobs;
 }
 
-module.exports = { loadJobs, saveJobs, createJob, findJob, removeJob, addMissingJobState };
+module.exports = { loadJobs, saveJobs, createJob, findJob, removeJob, addMissingJobState, addHistoryEntry };
