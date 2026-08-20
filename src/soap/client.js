@@ -84,6 +84,7 @@ class SoapClient {
     this.username = '';
     this.dataCenter = '';
     this.version = '';
+    this._profilesCache = [];
   }
 
   connect(dataCenter, apiVersion, username, password) {
@@ -117,6 +118,7 @@ class SoapClient {
     this.username = '';
     this.dataCenter = '';
     this.version = '';
+    this._profilesCache = [];
   }
 
   async _invoke(operationXml) {
@@ -124,6 +126,7 @@ class SoapClient {
       throw new Error('La conexión con Five9 no ha sido inicializada.');
     }
     const envelope = wrapEnvelope(operationXml);
+    console.log(`[SOAP] Request:\n${envelope.substring(0, 500)}`);
     try {
       const response = await axios.post(this.apiUrl, envelope, {
         headers: this.headers,
@@ -131,8 +134,10 @@ class SoapClient {
         responseType: 'text',
         validateStatus: () => true
       });
+      console.log(`[SOAP] Response status: ${response.status}`);
       if (response.status >= 400) {
         let errorBody = response.data || '';
+        console.log(`[SOAP] Error body: ${errorBody.substring(0, 500)}`);
         let errorMsg = `Error HTTP de Five9: ${response.status}`;
         if (errorBody) {
           try {
@@ -181,21 +186,20 @@ class SoapClient {
       if (!name) continue;
       const users = extractTextArray(node, 'users');
       const skills = extractTextArray(node, 'skills');
-      profiles.push({ name, userCount: users.length, skillCount: skills.length });
+      profiles.push({ name, userCount: users.length, users, skillCount: skills.length, skills });
     }
-    return profiles.sort((a, b) => a.name.localeCompare(b.name));
+    this._profilesCache = profiles.sort((a, b) => a.name.localeCompare(b.name));
+    return this._profilesCache.map(p => ({ name: p.name, userCount: p.userCount, skillCount: p.skillCount }));
   }
 
   async getProfile(profileName) {
-    const xmlObj = await this._invoke(buildGetUserProfile(profileName));
-    const body = this._getResponseBody(xmlObj);
-    const responseNode = extractLocal(body, 'getUserProfileResponse');
-    const node = extractLocal(responseNode, 'return');
-    if (!node) throw new Error(`No se encontró información para el perfil '${profileName}'.`);
-    const name = extractText(node, 'name') || profileName;
-    const users = extractTextArray(node, 'users');
-    const skills = extractTextArray(node, 'skills');
-    return { name, userCount: users.length, users, skillCount: skills.length, skills };
+    let found = this._profilesCache.find(p => p.name === profileName);
+    if (!found) {
+      await this.getProfiles();
+      found = this._profilesCache.find(p => p.name === profileName);
+    }
+    if (!found) throw new Error(`No se encontró información para el perfil '${profileName}'.`);
+    return { ...found };
   }
 
   async getSkills() {
