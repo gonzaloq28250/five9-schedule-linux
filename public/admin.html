@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Five9 Schedule - Administración</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { background: var(--bg); font-family: system-ui, sans-serif; color: var(--text); margin: 0; padding: 24px; }
+    .admin-container { max-width: 900px; margin: 0 auto; }
+    .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .admin-header h1 { font-size: 22px; margin: 0; }
+    .admin-header a { color: var(--primary); text-decoration: none; font-size: 14px; }
+    .admin-card { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+    .admin-card h2 { font-size: 16px; margin: 0 0 16px; color: var(--text); }
+    .user-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .user-table th { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--line); color: var(--muted); font-size: 11px; text-transform: uppercase; }
+    .user-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    .user-table tr:hover td { background: rgba(21,94,239,0.03); }
+    .role-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+    .role-admin { background: rgba(21,94,239,0.1); color: #155eef; }
+    .role-operator { background: rgba(14,159,110,0.1); color: #0e9f6e; }
+    .role-viewer { background: rgba(217,119,6,0.1); color: #d97706; }
+    .status-active { color: #0e9f6e; }
+    .status-inactive { color: #d92d20; }
+    .btn { padding: 6px 14px; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-danger { background: rgba(217,45,32,0.1); color: #d92d20; }
+    .btn-danger:hover { background: rgba(217,45,32,0.2); }
+    .btn-ghost { background: transparent; color: var(--primary); }
+    .btn-ghost:hover { background: rgba(21,94,239,0.05); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 8px; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.visible { display: flex; }
+    .modal { background: var(--surface-solid); border-radius: var(--radius-lg); padding: 28px; width: 100%; max-width: 480px; box-shadow: var(--shadow); }
+    .modal h3 { margin: 0 0 18px; font-size: 17px; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+    .modal-field input, .modal-field select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; }
+    .modal-field input:focus, .modal-field select:focus { border-color: var(--primary); outline: none; }
+    .checkbox-group { display: flex; gap: 14px; flex-wrap: wrap; }
+    .checkbox-group label { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; z-index: 200; transition: opacity 0.3s; }
+    .toast-success { background: #0e9f6e; color: #fff; }
+    .toast-error { background: #d92d20; color: #fff; }
+    .empty-state { text-align: center; color: var(--muted); padding: 30px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <div class="admin-header">
+      <h1>Administración de Usuarios</h1>
+      <a href="/">← Volver al Dashboard</a>
+    </div>
+
+    <div class="admin-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="margin:0">Usuarios</h2>
+        <button class="btn btn-primary" id="createUserBtn">+ Crear usuario</button>
+      </div>
+      <div id="usersList"><div class="empty-state">Cargando...</div></div>
+    </div>
+
+    <div class="admin-card">
+      <h2>Audit Log</h2>
+      <div id="auditList"><div class="empty-state">Cargando...</div></div>
+    </div>
+  </div>
+
+  <!-- User Modal -->
+  <div class="modal-overlay" id="userModal">
+    <div class="modal">
+      <h3 id="modalTitle">Crear usuario</h3>
+      <input type="hidden" id="editUserId">
+      <div class="modal-field">
+        <label for="modalUsername">Username</label>
+        <input type="text" id="modalUsername" autocomplete="off">
+      </div>
+      <div class="modal-field">
+        <label for="modalEmail">Email</label>
+        <input type="email" id="modalEmail">
+      </div>
+      <div class="modal-field" id="passwordField">
+        <label for="modalPassword">Contraseña</label>
+        <input type="password" id="modalPassword">
+      </div>
+      <div class="modal-field">
+        <label for="modalDisplayName">Nombre para mostrar</label>
+        <input type="text" id="modalDisplayName">
+      </div>
+      <div class="modal-field">
+        <label>Roles</label>
+        <div class="checkbox-group">
+          <label><input type="checkbox" value="admin" class="role-check"> Admin</label>
+          <label><input type="checkbox" value="operator" class="role-check"> Operator</label>
+          <label><input type="checkbox" value="viewer" class="role-check"> Viewer</label>
+        </div>
+      </div>
+      <div class="modal-field" id="activeField" style="display:none">
+        <label><input type="checkbox" id="modalActive"> Activo</label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modalCancel">Cancelar</button>
+        <button class="btn btn-primary" id="modalSave">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Password Modal -->
+  <div class="modal-overlay" id="resetModal">
+    <div class="modal">
+      <h3>Resetear contraseña</h3>
+      <input type="hidden" id="resetUserId">
+      <div class="modal-field">
+        <label for="resetPassword">Nueva contraseña</label>
+        <input type="password" id="resetPassword" minlength="4">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="resetCancel">Cancelar</button>
+        <button class="btn btn-primary" id="resetSave">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script>
+    const API = '';
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/login.html';
+
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+    function showToast(type, msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `toast toast-${type}`;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+
+    async function apiFetch(url, opts = {}) {
+      const resp = await fetch(API + url, { headers, ...opts });
+      if (resp.status === 401) { localStorage.clear(); window.location.href = '/login.html'; return; }
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.error || 'Error');
+      return data;
+    }
+
+    function roleBadge(role) {
+      const cls = { admin: 'role-admin', operator: 'role-operator', viewer: 'role-viewer' }[role] || '';
+      return `<span class="role-badge ${cls}">${role}</span>`;
+    }
+
+    async function loadUsers() {
+      const data = await apiFetch('/api/admin/users');
+      const list = document.getElementById('usersList');
+      if (!data.users.length) { list.innerHTML = '<div class="empty-state">No hay usuarios.</div>'; return; }
+      list.innerHTML = `<table class="user-table">
+        <thead><tr><th>Usuario</th><th>Email</th><th>Roles</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody>${data.users.map(u => `<tr>
+          <td><strong>${esc(u.username)}</strong><br><small style="color:var(--muted)">${esc(u.display_name || '')}</small></td>
+          <td>${esc(u.email)}</td>
+          <td>${u.roles.map(roleBadge).join('')}</td>
+          <td><span class="${u.is_active ? 'status-active' : 'status-inactive'}">${u.is_active ? 'Activo' : 'Inactivo'}</span></td>
+          <td><div class="btn-row">
+            <button class="btn btn-ghost" onclick="editUser('${u.id}','${esc(u.username)}','${esc(u.email)}','${esc(u.display_name||'')}','${u.roles.join(',')}',${u.is_active})">Editar</button>
+            <button class="btn btn-ghost" onclick="resetPassword('${u.id}')">Reset pass</button>
+            <button class="btn btn-danger" onclick="deleteUser('${u.id}','${esc(u.username)}')">Eliminar</button>
+          </div></td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+
+    async function loadAudit() {
+      const data = await apiFetch('/api/admin/audit?limit=50');
+      const list = document.getElementById('auditList');
+      if (!data.logs.length) { list.innerHTML = '<div class="empty-state">Sin registros.</div>'; return; }
+      list.innerHTML = `<table class="user-table">
+        <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalles</th></tr></thead>
+        <tbody>${data.logs.map(l => `<tr>
+          <td><small>${new Date(l.created_at).toLocaleString('es')}</small></td>
+          <td>${esc(l.username || 'system')}</td>
+          <td><strong>${esc(l.action)}</strong></td>
+          <td>${esc(l.entity_type)}</td>
+          <td><small style="color:var(--muted)">${esc(typeof l.details === 'string' ? l.details : JSON.stringify(l.details))}</small></td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    // Create/Edit modal
+    document.getElementById('createUserBtn').addEventListener('click', () => {
+      document.getElementById('modalTitle').textContent = 'Crear usuario';
+      document.getElementById('editUserId').value = '';
+      document.getElementById('modalUsername').value = '';
+      document.getElementById('modalUsername').disabled = false;
+      document.getElementById('modalEmail').value = '';
+      document.getElementById('modalPassword').value = '';
+      document.getElementById('passwordField').style.display = '';
+      document.getElementById('modalDisplayName').value = '';
+      document.getElementById('modalActive').checked = true;
+      document.getElementById('activeField').style.display = 'none';
+      document.querySelectorAll('.role-check').forEach(c => c.checked = c.value === 'viewer');
+      document.getElementById('userModal').classList.add('visible');
+    });
+
+    window.editUser = function(id, username, email, displayName, rolesStr, isActive) {
+      document.getElementById('modalTitle').textContent = 'Editar usuario';
+      document.getElementById('editUserId').value = id;
+      document.getElementById('modalUsername').value = username;
+      document.getElementById('modalUsername').disabled = true;
+      document.getElementById('modalEmail').value = email;
+      document.getElementById('passwordField').style.display = 'none';
+      document.getElementById('modalDisplayName').value = displayName;
+      document.getElementById('modalActive').checked = isActive;
+      document.getElementById('activeField').style.display = '';
+      const roles = rolesStr.split(',').filter(Boolean);
+      document.querySelectorAll('.role-check').forEach(c => c.checked = roles.includes(c.value));
+      document.getElementById('userModal').classList.add('visible');
+    };
+
+    document.getElementById('modalCancel').addEventListener('click', () => {
+      document.getElementById('userModal').classList.remove('visible');
+    });
+
+    document.getElementById('modalSave').addEventListener('click', async () => {
+      const id = document.getElementById('editUserId').value;
+      const roles = [...document.querySelectorAll('.role-check:checked')].map(c => c.value);
+
+      try {
+        if (id) {
+          await apiFetch(`/api/admin/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              email: document.getElementById('modalEmail').value,
+              displayName: document.getElementById('modalDisplayName').value,
+              isActive: document.getElementById('modalActive').checked,
+              roles
+            })
+          });
+          showToast('success', 'Usuario actualizado.');
+        } else {
+          const password = document.getElementById('modalPassword').value;
+          if (!password || password.length < 4) throw new Error('La contraseña debe tener al menos 4 caracteres.');
+          await apiFetch('/api/admin/users', {
+            method: 'POST',
+            body: JSON.stringify({
+              username: document.getElementById('modalUsername').value,
+              email: document.getElementById('modalEmail').value,
+              password,
+              displayName: document.getElementById('modalDisplayName').value,
+              roles
+            })
+          });
+          showToast('success', 'Usuario creado.');
+        }
+        document.getElementById('userModal').classList.remove('visible');
+        await loadUsers();
+      } catch (err) {
+        showToast('error', err.message);
+      }
+    });
+
+    // Reset password
+    window.resetPassword = function(id) {
+      document.getElementById('resetUserId').value = id;
+      document.getElementById('resetPassword').value = '';
+      document.getElementById('resetModal').classList.add('visible');
+    };
+
+    document.getElementById('resetCancel').addEventListener('click', () => {
+      document.getElementById('resetModal').classList.remove('visible');
+    });
+
+    document.getElementById('resetSave').addEventListener('click', async () => {
+      const id = document.getElementById('resetUserId').value;
+      const password = document.getElementById('resetPassword').value;
+      try {
+        if (!password || password.length < 4) throw new Error('Mínimo 4 caracteres.');
+        await apiFetch(`/api/admin/users/${id}/reset-password`, {
+          method: 'POST',
+          body: JSON.stringify({ password })
+        });
+        showToast('success', 'Contraseña actualizada.');
+        document.getElementById('resetModal').classList.remove('visible');
+      } catch (err) {
+        showToast('error', err.message);
+      }
+    });
+
+    // Delete
+    window.deleteUser = async function(id, username) {
+      if (!confirm(`¿Eliminar al usuario "${username}"?`)) return;
+      try {
+        await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        showToast('success', 'Usuario eliminado.');
+        await loadUsers();
+      } catch (err) {
+        showToast('error', err.message);
+      }
+    };
+
+    // Init
+    loadUsers();
+    loadAudit();
+  </script>
+</body>
+</html>

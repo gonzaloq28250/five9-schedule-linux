@@ -5,6 +5,8 @@ const { logMoveAudit, logSkillAudit } = require('../utils/logger');
 const { moveUsers, setProfileSkills } = require('../engine/actions');
 const { createJob, findJob, removeJob, saveJobs } = require('../engine/jobs');
 const { updateSettings } = require('../engine/settings');
+const { authMiddleware, requireRole } = require('../auth/middleware');
+const { db } = require('../db');
 
 const SOAP_CREDS = require('path').join(DATA_DIR, 'soap-credentials.json');
 const REST_CREDS = require('path').join(DATA_DIR, 'rest-credentials.json');
@@ -17,7 +19,7 @@ module.exports = function createRouter(state) {
     if (!soapClient.connected) throw new Error('Debes conectarte a Five9 antes de usar esta funcion.');
   }
 
-  // Health
+  // Public routes
   router.get('/api/health', (req, res) => {
     res.json({
       soapConnected: soapClient.connected,
@@ -27,6 +29,47 @@ module.exports = function createRouter(state) {
       automationSettings: settings
     });
   });
+
+  // Public: validate Five9 credentials
+  router.post('/api/validate-credentials', async (req, res, next) => {
+    try {
+      const { type, dataCenter, apiVersion, username, password } = req.body;
+      if (!type || !username || !password) {
+        return res.status(400).json({ success: false, valid: false, error: 'Faltan campos obligatorios.' });
+      }
+
+      if (type === 'soap') {
+        const SoapClientClass = require('../soap/client');
+        const client = new SoapClientClass();
+        try {
+          client.connect(dataCenter || 'US', apiVersion || 'v13', username, password);
+          await client.getProfiles();
+          client.connected = true;
+          res.json({ success: true, valid: true, message: 'Credenciales SOAP válidas.' });
+          client.disconnect();
+        } catch (err) {
+          res.json({ success: true, valid: false, error: err.message });
+        }
+      } else if (type === 'rest') {
+        const RestProtectionClass = require('../rest/protection');
+        const RestClientClass = require('../rest/client');
+        const protection = new RestProtectionClass({});
+        const client = new RestClientClass(protection);
+        try {
+          await client.connect(dataCenter || 'US', username, password);
+          res.json({ success: true, valid: true, message: 'Credenciales REST válidas.', queues: client.queues?.length || 0, agents: client.agents?.length || 0 });
+          await client.disconnect();
+        } catch (err) {
+          res.json({ success: true, valid: false, error: err.message });
+        }
+      } else {
+        res.status(400).json({ success: false, valid: false, error: 'Tipo inválido. Usa "soap" o "rest".' });
+      }
+    } catch (e) { next(e); }
+  });
+
+  // All routes below require auth
+  router.use(authMiddleware);
 
   // SOAP Connect
   router.post('/api/connect', async (req, res, next) => {

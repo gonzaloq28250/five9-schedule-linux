@@ -10,7 +10,10 @@ const { loadSettings } = require('./engine/settings');
 const { loadJobs, saveJobs } = require('./engine/jobs');
 const { AutomationEngine } = require('./engine/scheduler');
 const createRouter = require('./api/routes');
+const createAuthRouter = require('./api/auth-routes');
+const createAdminRouter = require('./api/admin-routes');
 const { loadCredential } = require('./auth/credentials');
+const { initDatabase } = require('./db');
 
 const PORT = process.env.PORT || 8765;
 const SOAP_CREDS = path.join(DATA_DIR, 'soap-credentials.json');
@@ -19,6 +22,9 @@ const RUNTIME_PATH = path.join(DATA_DIR, 'runtime.json');
 
 async function main() {
   ensureDirs();
+
+  // Initialize database
+  await initDatabase();
 
   const settings = loadSettings();
   const jobs = loadJobs();
@@ -31,7 +37,23 @@ async function main() {
   const app = express();
   app.use(express.json());
   app.use(express.static(path.join(__dirname, '..', 'public')));
+
+  // Auth routes (public)
+  app.use(createAuthRouter());
+
+  // Admin routes (protected, admin only)
+  app.use(createAdminRouter());
+
+  // Main API routes (protected)
   app.use(createRouter(state));
+
+  // SPA fallback - serve index.html for non-API routes
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ success: false, error: 'Endpoint no encontrado.' });
+    }
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  });
 
   // Error handler
   app.use((err, req, res, next) => {

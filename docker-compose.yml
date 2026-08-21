@@ -9,4 +9,27 @@ services:
     environment:
       - PORT=8765
       - FIVE9_ENCRYPTION_KEY=${FIVE9_ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
+      - DATABASE_URL=postgres://five9:five9@postgres:5432/five9
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=five9
+      - POSTGRES_PASSWORD=five9
+      - POSTGRES_DB=five9
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U five9"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:

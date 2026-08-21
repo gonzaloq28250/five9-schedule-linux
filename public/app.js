@@ -95,14 +95,22 @@ const elements = {
 };
 
 async function api(path, options = {}) {
+  const token = localStorage.getItem('token');
   const response = await fetch(path, {
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       ...(options.headers || {})
     },
     cache: "no-store",
     ...options
   });
+
+  if (response.status === 401) {
+    localStorage.clear();
+    window.location.href = '/login.html';
+    throw new Error('Sesión expirada.');
+  }
 
   let payload;
   try {
@@ -942,7 +950,30 @@ elements.refreshButton.addEventListener("click", () => refreshProfiles().catch(e
   hideLoading();
   showToast("error", "No se pudo actualizar", error.message);
 }));
-elements.disconnectButton.addEventListener("click", disconnect);
+
+// Auth: logout
+const logoutButton = document.querySelector("#logoutButton");
+if (logoutButton) {
+  logoutButton.addEventListener("click", async () => {
+    try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+    localStorage.clear();
+    window.location.href = "/login.html";
+  });
+}
+
+// Auth: display user info
+(function initUser() {
+  try {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user) { window.location.href = "/login.html"; return; }
+    const nameEl = document.getElementById("appUserName");
+    if (nameEl) nameEl.textContent = user.display_name || user.username;
+    const adminLink = document.getElementById("adminLink");
+    if (adminLink && user.roles && user.roles.includes("admin")) {
+      adminLink.style.display = "";
+    }
+  } catch { window.location.href = "/login.html"; }
+})();
 
 elements.dashboardNavButtons.forEach(button => {
   button.addEventListener("click", () => {

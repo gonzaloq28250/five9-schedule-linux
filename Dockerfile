@@ -5,6 +5,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
+COPY knexfile.js ./
+COPY migrations/ ./migrations/
 COPY src/ ./src/
 COPY public/ ./public/
 
