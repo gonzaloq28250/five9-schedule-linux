@@ -9,14 +9,14 @@ function createAdminRouter() {
   router.use(authMiddleware);
   router.use(requireRole('admin'));
 
-  router.get('/api/admin/users', async (req, res, next) => {
+  router.get('/users', async (req, res, next) => {
     try {
       const users = await listUsers();
       res.json({ success: true, users });
     } catch (e) { next(e); }
   });
 
-  router.post('/api/admin/users', async (req, res, next) => {
+  router.post('/users', async (req, res, next) => {
     try {
       const { username, email, password, displayName, roles } = req.body;
       const user = await createUser({ username, email, password, displayName, roles });
@@ -34,7 +34,7 @@ function createAdminRouter() {
     } catch (e) { next(e); }
   });
 
-  router.put('/api/admin/users/:id', async (req, res, next) => {
+  router.put('/users/:id', async (req, res, next) => {
     try {
       const { email, displayName, isActive, roles } = req.body;
       const user = await updateUser(req.params.id, { email, displayName, isActive, roles });
@@ -52,7 +52,7 @@ function createAdminRouter() {
     } catch (e) { next(e); }
   });
 
-  router.post('/api/admin/users/:id/reset-password', async (req, res, next) => {
+  router.post('/users/:id/reset-password', async (req, res, next) => {
     try {
       const { password } = req.body;
       await resetPassword(req.params.id, password);
@@ -70,7 +70,7 @@ function createAdminRouter() {
     } catch (e) { next(e); }
   });
 
-  router.delete('/api/admin/users/:id', async (req, res, next) => {
+  router.delete('/users/:id', async (req, res, next) => {
     try {
       if (req.params.id === req.user.sub) {
         return res.status(400).json({ success: false, error: 'No puedes eliminarte a ti mismo.' });
@@ -90,7 +90,7 @@ function createAdminRouter() {
     } catch (e) { next(e); }
   });
 
-  router.get('/api/admin/audit', async (req, res, next) => {
+  router.get('/audit', async (req, res, next) => {
     try {
       const limit = Math.min(parseInt(req.query.limit) || 100, 500);
       const logs = await db('audit_logs')
@@ -102,7 +102,7 @@ function createAdminRouter() {
     } catch (e) { next(e); }
   });
 
-  router.get('/api/admin/roles', (req, res) => {
+  router.get('/roles', (req, res) => {
     res.json({ success: true, roles: VALID_ROLES });
   });
 

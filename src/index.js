@@ -42,7 +42,7 @@ async function main() {
   app.use(createAuthRouter());
 
   // Admin routes (protected, admin only)
-  app.use(createAdminRouter());
+  app.use('/api/admin', createAdminRouter());
 
   // Main API routes (protected)
   app.use(createRouter(state));
