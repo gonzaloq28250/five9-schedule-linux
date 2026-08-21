@@ -961,7 +961,7 @@ if (logoutButton) {
   });
 }
 
-// Auth: display user info
+// Auth: display user info and show dashboard
 (function initUser() {
   try {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -972,6 +972,11 @@ if (logoutButton) {
     if (adminLink && user.roles && user.roles.includes("admin")) {
       adminLink.style.display = "";
     }
+    // Show dashboard directly (skip old Five9 login view)
+    const loginView = document.getElementById("loginView");
+    const dashboardView = document.getElementById("dashboardView");
+    if (loginView) loginView.classList.add("hidden");
+    if (dashboardView) dashboardView.classList.remove("hidden");
   } catch { window.location.href = "/login.html"; }
 })();
 
